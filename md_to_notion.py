@@ -81,12 +81,12 @@ def create_block(block_type: str, content: Dict[str, Any]) -> Dict[str, Any]:
         block["children"] = []
     return block
 
-# --- Core Conversion Logic (V6 - Refined math_block handling) ---
+# --- Core Conversion Logic (Refined math_block handling) ---
 
 def markdown_to_notion_blocks(markdown_text: str) -> List[Dict[str, Any]]:
     """
     Converts Markdown text into a hierarchical list of Notion block dictionaries.
-    V6: Refines handling of math_block token state reset.
+    : Refines handling of math_block token state reset.
     """
     try:
         tokens = md.parse(markdown_text)
@@ -294,7 +294,7 @@ def markdown_to_notion_blocks(markdown_text: str) -> List[Dict[str, Any]]:
 
         # --- Standalone Block Elements ---
         elif token.type == "math_block":
-            # --- V6 Change: Create/append BEFORE resetting state ---
+            # ---  Change: Create/append BEFORE resetting state ---
             expression = token.content.strip('$$\n ')
             new_block = None # Define new_block before potential assignment
             if expression:
