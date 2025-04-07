@@ -5,7 +5,7 @@ REM Asks whether to use a file path or direct text input.
 REM Corrected version: Omits --page_id flag entirely when prompt is blank.
 
 REM --- !!! IMPORTANT: ADJUST THIS PATH IF NEEDED !!! ---
-set PROJECT_DIR=C:\Users\sipak\CodingProjects\MardownImporter
+set PROJECT_DIR=.\
 REM ---
 
 set PYTHON_EXEC=%PROJECT_DIR%\.venv\Scripts\python.exe
