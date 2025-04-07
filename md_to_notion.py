@@ -1,6 +1,3 @@
-# md_to_notion_v6.py
-# Author: Gemini AI (incorporating V6 math_block refinement)
-# Last Updated: 2025-04-07
 # Description: Converts Markdown to Notion blocks, handling nesting, removing <br>,
 #              attempting newline insertion, and refining math block handling.
 #              NOTE: Notion rendering of literal newlines in rich text is inconsistent.
