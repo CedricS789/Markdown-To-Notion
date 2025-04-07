@@ -1,0 +1,4 @@
+notion-client
+python-dotenv
+markdown-it-py
+mdit-py-plugins
