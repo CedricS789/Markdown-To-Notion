@@ -1,142 +1,168 @@
 @echo off
-cls
-REM Interactive batch file to run Markdown to Notion script
-REM Asks whether to use a file path or direct text input.
-REM Corrected version: Omits --page_id flag entirely when prompt is blank.
+setlocal enabledelayedexpansion
 
-REM --- !!! IMPORTANT: ADJUST THIS PATH IF NEEDED !!! ---
-set PROJECT_DIR=.\
-REM ---
+:: Get the directory where this batch script resides
+set "SCRIPT_DIR=%~dp0"
 
-set PYTHON_EXEC=%PROJECT_DIR%\.venv\Scripts\python.exe
-set SCRIPT_PATH=%PROJECT_DIR%\md_to_notion.py
-set ENV_FILE=%PROJECT_DIR%\.env
+:: --- Configuration ---
+:: Use %SCRIPT_DIR% to ensure paths are relative to the batch file location
+set "PYTHON_SCRIPT=%SCRIPT_DIR%md_to_notion.py"
+set "PYTHON_EXE=%SCRIPT_DIR%.venv\Scripts\python.exe"
+:: Make sure your virtual environment directory is named '.venv' and located in SCRIPT_DIR
 
-REM --- Sanity Checks ---
-if not exist "%PYTHON_EXEC%" (
-    echo ERROR: Python executable not found at "%PYTHON_EXEC%"
-    echo Please check the PROJECT_DIR variable and ensure the virtual environment exists.
-    pause
-    exit /b 1
+:: --- Script Header ---
+echo ========================================
+echo Markdown to Notion Converter
+echo ========================================
+echo Located in: %SCRIPT_DIR%
+echo.
+
+:: --- Check if Python script exists ---
+if not exist "%PYTHON_SCRIPT%" (
+    echo ERROR: The Python script was not found at:
+    echo "%PYTHON_SCRIPT%"
+    echo Please make sure it's named 'md_to_notion.py' and is in the same directory as this batch file.
+    goto :error_exit
 )
-if not exist "%SCRIPT_PATH%" (
-    echo ERROR: Python script not found at "%SCRIPT_PATH%"
-    echo Please check the PROJECT_DIR variable.
-    pause
-    exit /b 1
+
+:: --- Check if Python executable exists in venv ---
+if not exist "%PYTHON_EXE%" (
+    echo ERROR: Python executable not found in the virtual environment at:
+    echo "%PYTHON_EXE%"
+    echo Please ensure your virtual environment is set up correctly in a folder named '.venv'
+    echo inside the script directory '%SCRIPT_DIR%'.
+    goto :error_exit
 )
- if not exist "%ENV_FILE%" (
-    echo WARNING: .env file not found at "%ENV_FILE%"
-    echo Default Notion Page ID may not be available if NOTION_PAGE_ID is not in .env.
-    echo Ensure NOTION_API_KEY is set in .env or globally.
+
+:: --- Choose Input Mode ---
+:choose_mode
+echo Choose input mode:
+echo   1. File Mode (Read from a .md file)
+echo   2. Text Mode (Enter Markdown text directly)
+echo.
+set /p INPUT_MODE="Enter choice (1 or 2): "
+
+if "%INPUT_MODE%"=="1" goto :file_mode
+if "%INPUT_MODE%"=="2" goto :text_mode
+
+echo Invalid choice. Please enter 1 or 2.
+echo.
+goto :choose_mode
+
+:: --- File Mode ---
+:file_mode
+echo.
+echo --- File Mode ---
+set /p MD_FILE_PATH="Enter the full path to the Markdown file (.md): "
+
+:: Validate if file path was entered
+if not defined MD_FILE_PATH (
+    echo ERROR: No file path entered.
+    goto :error_exit
 )
+if "%MD_FILE_PATH%"=="" (
+    echo ERROR: No file path entered.
+    goto :error_exit
+)
+
+:: Remove surrounding quotes if user accidentally added them
+set MD_FILE_PATH=%MD_FILE_PATH:"=%
+
+:: Validate if file exists
+if not exist "%MD_FILE_PATH%" (
+    echo ERROR: File not found at '%MD_FILE_PATH%'.
+    echo Please check the path and try again. Make sure to provide the full path if the file
+    echo is not in the current working directory when you run this script.
+    goto :error_exit
+)
+
+:: --- CORRECTED: Set the argument for the python script using standard quotes ---
+set "INPUT_ARG=-f "%MD_FILE_PATH%""
+goto :choose_page_id
+
+:: --- Text Mode ---
+:text_mode
 echo.
-echo --- Markdown to Notion Uploader (Clickable Version) ---
+echo --- Text Mode ---
+echo Enter the Markdown text below. Batch files have limitations with complex multi-line input,
+echo so keep it relatively simple or use File Mode for longer content.
+set /p MD_TEXT="Markdown Text: "
+
+:: Validate if text was entered
+if not defined MD_TEXT (
+    echo ERROR: No Markdown text entered.
+    goto :error_exit
+)
+if "%MD_TEXT%"=="" (
+    echo ERROR: No Markdown text entered.
+    goto :error_exit
+)
+
+:: --- CORRECTED: Set the argument for the python script using standard quotes ---
+set "INPUT_ARG=-t "%MD_TEXT%""
+goto :choose_page_id
+
+:: --- Choose Page ID (Optional) ---
+:choose_page_id
 echo.
+echo --- Notion Page ID ---
+echo The script will use the NOTION_PAGE_ID from your .env file by default.
+set /p CUSTOM_PAGE_ID="Optional: Enter a specific Notion Page/Block ID to override the default (leave blank to use default): "
 
-REM --- Choose Input Mode ---
-:ChooseMode
-echo Please choose the input method:
-echo   [F] Provide a File Path
-echo   [T] Paste/Type Direct Text
-echo.
-set /p INPUT_MODE="Enter F or T: "
-
-REM Validate Mode (case-insensitive check) and branch
-if /i "%INPUT_MODE%"=="F" goto :GetFileInput
-if /i "%INPUT_MODE%"=="T" goto :GetTextInput
-echo Invalid choice. Please enter only F or T.
-echo.
-goto ChooseMode
-
-REM --- Get File Input ---
-:GetFileInput
-    set PYTHON_FLAG=--file
-    set "INPUT_DATA="
-    echo.
-    :PromptFile
-    echo --- Enter File Path ---
-    set /p INPUT_DATA="Full path to Markdown file: "
-    if "%INPUT_DATA%"=="" (
-        echo ERROR: File path cannot be empty. Please try again.
-        echo.
-        goto PromptFile
-    )
-    if not exist "%INPUT_DATA%" (
-        echo ERROR: File not found at "%INPUT_DATA%"
-        echo Please check the path and try again.
-        echo.
-        goto PromptFile
-     )
-    echo File selected: "%INPUT_DATA%"
-    goto GetPageID
-
-REM --- Get Text Input ---
-:GetTextInput
-    set PYTHON_FLAG=--text
-    set "INPUT_DATA="
-    echo.
-    echo --- Enter Markdown Text ---
-    echo Paste or type your Markdown text below and press Enter.
-    echo (Note: Pasting multi-line text directly into cmd can sometimes be unreliable.)
-    :PromptText
-    set /p INPUT_DATA="Markdown Text: "
-    if "%INPUT_DATA%"=="" (
-        echo ERROR: Input text cannot be empty. Please try again.
-        echo.
-        goto PromptText
-    )
-    echo Text input provided.
-    goto GetPageID
-
-REM --- Get Notion Page ID ---
-:GetPageID
-    echo.
-    set "NOTION_PAGE_ID="
-    echo --- Enter Notion Page ID ---
-    echo Enter the Notion Page ID to upload to.
-    echo (Leave blank and press Enter to use the default ID from your .env file)
-    set /p NOTION_PAGE_ID="Notion Page ID (Optional): "
-    echo.
-
-REM --- Run the Python Script ---
-echo Processing input...
-
-REM === CORRECTED EXECUTION LOGIC ===
-REM Decide which command structure to use based on NOTION_PAGE_ID being empty or not
-
-if not "%NOTION_PAGE_ID%"=="" (
-    REM User PROVIDED a Page ID
-    echo Target: Specific Notion Page ID ("%NOTION_PAGE_ID%")
-    echo Running Python script with specified Page ID...
-    echo Command: "%PYTHON_EXEC%" "%SCRIPT_PATH%" %PYTHON_FLAG% "%INPUT_DATA%" --page_id "%NOTION_PAGE_ID%"
-    echo.
-    "%PYTHON_EXEC%" "%SCRIPT_PATH%" %PYTHON_FLAG% "%INPUT_DATA%" --page_id "%NOTION_PAGE_ID%"
-    REM Add --debug like this if needed:
-    REM "%PYTHON_EXEC%" "%SCRIPT_PATH%" %PYTHON_FLAG% "%INPUT_DATA%" --page_id "%NOTION_PAGE_ID%" --debug
+set "PAGE_ID_ARG="
+if defined CUSTOM_PAGE_ID if not "%CUSTOM_PAGE_ID%"=="" (
+    :: Remove surrounding quotes if user accidentally added them
+    set CUSTOM_PAGE_ID=%CUSTOM_PAGE_ID:"=%
+    :: --- CORRECTED: Set the argument for the python script using standard quotes ---
+    set "PAGE_ID_ARG=-p "%CUSTOM_PAGE_ID%""
+    echo Using custom Page ID: %CUSTOM_PAGE_ID%
 ) else (
-    REM User left Page ID BLANK - use default from .env
-    echo Target: Default Notion Page ID (from .env)
-    echo Running Python script using default Page ID...
-    REM Run *WITHOUT* the --page_id argument AT ALL
-    echo Command: "%PYTHON_EXEC%" "%SCRIPT_PATH%" %PYTHON_FLAG% "%INPUT_DATA%"
-    echo.
-    "%PYTHON_EXEC%" "%SCRIPT_PATH%" %PYTHON_FLAG% "%INPUT_DATA%"
-    REM Add --debug like this if needed:
-    REM "%PYTHON_EXEC%" "%SCRIPT_PATH%" %PYTHON_FLAG% "%INPUT_DATA%" --debug
-)
-REM === END OF CORRECTED LOGIC ===
-
-
-REM Check the exit code from the Python script
-if %ERRORLEVEL% neq 0 (
-  echo WARNING: Python script finished with error code %ERRORLEVEL%. Check output above.
-) else (
-  echo Python script finished successfully.
+    echo Using default Page ID from .env file.
 )
 echo.
 
-echo --- Batch File Finished ---
-echo Press any key to close this window.
+:: --- Choose Debug Mode (Optional) ---
+:choose_debug
+echo --- Debug Mode ---
+set "DEBUG_ARG="
+set /p DEBUG_MODE="Optional: Enable Python script debug logging (more verbose)? (y/N) (leave blank for No): "
+:: --- MODIFIED if/else STRUCTURE BELOW ---
+if /i "%DEBUG_MODE%"=="y" (
+    set "DEBUG_ARG=--debug"
+    echo Debug mode enabled.
+) else echo Debug mode disabled (Default).
 echo.
-pause >nul
+
+
+:: --- Construct and Run Command ---
+echo --- Running Script ---
+:: Removed extra quotes around %PYTHON_EXE% and %PYTHON_SCRIPT% as they already contain quotes if needed.
+:: Concatenate the components directly.
+set "COMMAND=%PYTHON_EXE% %PYTHON_SCRIPT% %INPUT_ARG% %PAGE_ID_ARG% %DEBUG_ARG%"
+echo Executing: %COMMAND%
+echo.
+echo --- Python Script Output Start ---
+%COMMAND%
+echo --- Python Script Output End ---
+echo.
+
+goto :success_exit
+
+:: --- Error Exit ---
+:error_exit
+echo.
+echo Script execution failed due to errors. Check messages above.
+goto :end
+
+:: --- Success Exit ---
+:success_exit
+echo.
+echo Script finished. Check the output above and the log file generated by the Python script (md_to_notion.log).
+goto :end
+
+:: --- End Script ---
+:end
+endlocal
+echo.
+pause
+exit /b
